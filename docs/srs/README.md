@@ -3,6 +3,8 @@
 **Audience:** Backend / product.  
 **Format:** Separate detailed markdown files on purpose. **Do not collapse into one file on our side** — send this whole folder. The BE may later produce a single consolidated `SRS.md` if they prefer.
 
+**UI status (this Next.js repo + Flutter):** [UI-AUDIT-ADMIN-WEB.md](../UI-AUDIT-ADMIN-WEB.md) · [Flutter UI-AUDIT-AND-GAPS.md](file:///home/justice/frip_cash/docs/UI-AUDIT-AND-GAPS.md)
+
 **Also send (API-oriented companion):** `../backend/` (roles matrix, upgrade rules, destinations, endpoint sketch).
 
 | # | File | Topic |

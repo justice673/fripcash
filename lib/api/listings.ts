@@ -32,8 +32,10 @@ export type Listing = {
   description: string | null;
   /** What the seller receives (net). */
   netPriceGnf: number;
-  /** Buyer display / pay price (= net + commission). */
+  /** Buyer display / pay price (= net + commission). Prefer displayPriceGnf. */
   priceGnf: number;
+  /** Canonical buyer price from Nest (from-be). */
+  displayPriceGnf?: number;
   /** Snapshotted rate 0..1 at create / price update. */
   commissionRate: number;
   commissionAmountGnf: number;
@@ -48,6 +50,17 @@ export type Listing = {
   createdAt: string;
   updatedAt?: string;
   media?: ListingMedia[];
+  /** Public DTO seller blob (from-be). */
+  seller?: {
+    id?: string;
+    name?: string | null;
+    displayName?: string | null;
+    username?: string | null;
+    avatarUrl?: string | null;
+    rating?: number;
+    reviewCount?: number;
+    reviewsCount?: number;
+  } | null;
   sellerProfile?: {
     id: string;
     userId: string;
@@ -131,8 +144,44 @@ export async function deleteListingMedia(listingId: string, mediaId: string) {
 export async function fetchListings(params?: {
   destination?: string;
   categoryId?: string;
+  sellerId?: string;
+  q?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  inStockOnly?: boolean;
+  sort?: string;
+  cursor?: string;
+  limit?: number;
 }) {
-  const { data } = await api.get<Listing[]>("/listings", { params });
+  const { data } = await api.get<
+    { items?: Listing[]; nextCursor?: string | null } | Listing[]
+  >("/listings", {
+    params: {
+      inStockOnly: true,
+      sort: "newest",
+      limit: 20,
+      ...params,
+    },
+  });
+  if (Array.isArray(data)) return data as Listing[];
+  if (data && Array.isArray(data.items)) return data.items;
+  return [] as Listing[];
+}
+
+export async function fetchMyListings(params?: {
+  status?: string;
+}): Promise<Listing[]> {
+  const { data } = await api.get<{ items?: Listing[] } | Listing[]>(
+    "/me/listings",
+    { params }
+  );
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.items)) return data.items;
+  return [];
+}
+
+export async function fetchMyListing(id: string) {
+  const { data } = await api.get<Listing>(`/me/listings/${id}`);
   return data;
 }
 
@@ -141,21 +190,33 @@ export async function fetchListing(id: string) {
   return data;
 }
 
+/** Light create — never send `destination` (server assigns from seller profile). */
 export async function createListing(body: {
   title: string;
   description?: string;
-  /** Preferred: seller net. Response `priceGnf` is buyer display. */
   netPriceGnf: number;
-  quantity: number;
-  destination: ListingDestination;
+  stock?: number;
+  /** @deprecated Prefer `stock` (from-be). Mapped to stock if stock omitted. */
+  quantity?: number;
   categoryId?: string;
+  subcategoryId?: string;
   zoneId?: string;
+  conditionCode?: string;
   conditionNote?: string;
+  shippingCostGnf?: number;
+  colors?: string[];
+  brand?: string;
+  size?: string;
   negotiable?: boolean;
+  publish?: boolean;
   discountEnabled?: boolean;
   compareAtPriceGnf?: number | null;
 }) {
-  const { data } = await api.post<Listing>("/listings", body);
+  const { quantity, stock, ...rest } = body;
+  const { data } = await api.post<Listing>("/listings", {
+    ...rest,
+    stock: stock ?? quantity ?? 1,
+  });
   return data;
 }
 
@@ -164,19 +225,43 @@ export async function updateListing(
   body: Partial<{
     title: string;
     description: string;
-    netPriceGnf: number;
-    quantity: number;
-    destination: ListingDestination;
     categoryId: string;
+    subcategoryId: string;
     zoneId: string;
     conditionNote: string;
-    status: ListingStatus;
+    conditionCode: string;
     negotiable: boolean;
     discountEnabled: boolean;
     compareAtPriceGnf: number | null;
+    brand: string;
+    size: string;
+    shippingCostGnf: number;
+    colors: string[];
   }>
 ) {
   const { data } = await api.patch<Listing>(`/listings/${id}`, body);
+  return data;
+}
+
+export async function updateListingPrice(id: string, netPriceGnf: number) {
+  const { data } = await api.post<Listing>(`/listings/${id}/price`, {
+    netPriceGnf,
+  });
+  return data;
+}
+
+export async function updateListingStock(id: string, stock: number) {
+  const { data } = await api.post<Listing>(`/listings/${id}/stock`, { stock });
+  return data;
+}
+
+export async function publishListing(id: string) {
+  const { data } = await api.post<Listing>(`/listings/${id}/publish`);
+  return data;
+}
+
+export async function hideListing(id: string) {
+  const { data } = await api.post<Listing>(`/listings/${id}/hide`);
   return data;
 }
 
@@ -208,10 +293,16 @@ export async function fetchSellerReviews(sellerProfileId: string) {
   return data;
 }
 
+/** from-be orders: POST /orders/:id/ratings */
 export async function createOrderReview(
   orderId: string,
-  body: { rating: number; comment?: string; listingId: string }
+  body: { rating: number; comment?: string; listingId?: string }
 ) {
-  const { data } = await api.post(`/orders/${orderId}/reviews`, body);
-  return data;
+  try {
+    const { data } = await api.post(`/orders/${orderId}/ratings`, body);
+    return data;
+  } catch {
+    const { data } = await api.post(`/orders/${orderId}/reviews`, body);
+    return data;
+  }
 }

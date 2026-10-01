@@ -318,9 +318,52 @@ export async function rejectIndividualKyc(id: string, reviewerNote?: string) {
 
 export async function resolveDispute(
   id: string,
-  body: { resolution: "resolved_buyer" | "resolved_seller"; note: string }
+  body:
+    | {
+        outcome: "refund_buyer" | "partial_refund" | "release_seller";
+        amountGnf?: number;
+        notes?: string;
+      }
+    | {
+        /** @deprecated Prefer `outcome` (from-be). */
+        resolution: "resolved_buyer" | "resolved_seller";
+        note: string;
+      }
 ) {
-  const { data } = await api.post(`/admin/disputes/${id}/resolve`, body);
+  const payload =
+    "outcome" in body
+      ? body
+      : {
+          outcome:
+            body.resolution === "resolved_buyer"
+              ? ("refund_buyer" as const)
+              : ("release_seller" as const),
+          notes: body.note,
+        };
+  const { data } = await api.post(`/admin/disputes/${id}/resolve`, payload);
+  return data;
+}
+
+export async function fetchAdminOrders(params?: {
+  status?: string;
+  q?: string;
+}) {
+  const { data } = await api.get("/admin/orders", { params });
+  return data;
+}
+
+export async function fetchAdminShippingRates() {
+  const { data } = await api.get("/admin/shipping-rates");
+  return data;
+}
+
+export async function upsertAdminShippingRate(body: {
+  fromZoneCode: string;
+  toZoneCode: string;
+  feeGnf: number;
+  isActive?: boolean;
+}) {
+  const { data } = await api.post("/admin/shipping-rates", body);
   return data;
 }
 

@@ -19,6 +19,14 @@ export {
 export {
   sendOtp,
   verifyOtp,
+  requestAuthOtp,
+  verifyAuthOtp,
+  registerConsumer,
+  loginWithPassword,
+  registerCloudinarySign,
+  forgotPasswordPhone,
+  resetPasswordPhone,
+  changePassword,
   signOut,
   getSession,
   adminLogin,
@@ -52,9 +60,15 @@ export {
 
 export {
   fetchListings,
+  fetchMyListings,
+  fetchMyListing,
   fetchListing,
   createListing,
   updateListing,
+  updateListingPrice,
+  updateListingStock,
+  publishListing,
+  hideListing,
   deleteListing,
   listingImageUrl,
   attachListingMedia,
@@ -91,6 +105,7 @@ export {
   setVacation,
   fetchProductLibrary,
   createLibraryItem,
+  publishLibraryItem,
   queueExcelImport,
 } from "./sellers";
 
@@ -109,24 +124,46 @@ export {
   addCartItem,
   updateCartItem,
   removeCartItem,
+  validateCart,
+  quoteCheckout,
+  createPayment,
+  getPayment,
   checkout,
   type Cart,
+  type CheckoutAddress,
+  type CheckoutQuote,
+  type FulfillmentMode,
+  type PaymentIntent,
 } from "./cart";
 
 export {
+  fetchOrders,
   fetchPurchases,
   fetchSales,
   fetchOrder,
+  fetchOrderTimeline,
   transitionOrderStatus,
+  prepareOrder,
+  readyOrder,
+  confirmHandoff,
+  confirmReceipt,
+  rateOrder,
+  sellerRefundOrder,
+  markOrderCollected,
+  markOrderInTransit,
+  markOrderDelivered,
   openDispute,
   fetchInvoiceReceipt,
   type OrderStatus,
+  type OrderListAs,
 } from "./orders";
 
 export {
   fetchWalletBalance,
   fetchWalletLedger,
   requestWithdraw,
+  fetchWithdrawal,
+  updatePayoutMsisdn,
 } from "./wallet";
 
 export { fetchFavorites, addFavorite, removeFavorite } from "./favorites";
@@ -173,6 +210,9 @@ export {
   approveIndividualKyc,
   rejectIndividualKyc,
   resolveDispute,
+  fetchAdminOrders,
+  fetchAdminShippingRates,
+  upsertAdminShippingRate,
   fetchAdminListings,
   updateAdminListing,
   fetchAuthAdminUsers,
@@ -208,3 +248,19 @@ export {
 export { authorizePusher, authorizeBeams } from "./pusher";
 
 export { fetchHealth, fetchReady } from "./health";
+
+export {
+  fetchAdminPromotions,
+  fetchAdminPromotion,
+  createAdminPromotion,
+  updateAdminPromotion,
+  deleteAdminPromotion,
+  fetchHomePromotions,
+  type Promotion,
+  type PromotionKind,
+  type PromotionStatus,
+  type PromotionSurface,
+  type PromotionListResponse,
+  type CreatePromotionBody,
+  type UpdatePromotionBody,
+} from "./promotions";

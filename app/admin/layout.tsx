@@ -41,6 +41,7 @@ const pageLabels: Record<string, string> = {
   "/admin/articles": "Articles",
   "/admin/commandes": "Commandes",
   "/admin/categories": "Catégories",
+  "/admin/promotions": "Promotions",
   "/admin/signalements": "Signalements",
   "/admin/litiges": "Litiges",
   "/admin/porte-monnaies": "Porte-monnaies",
@@ -102,7 +103,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       // Fast reject: no token / no local admin flag
       if (!readToken() || !hasAdminSession()) {
         clearAdminSession();
-        router.replace("/admin-login");
+        router.replace("/connexion?mode=email");
         return;
       }
       try {
@@ -111,14 +112,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         if (cancelled) return;
         if (!me || (me as { isAdmin?: boolean }).isAdmin === false) {
           clearAdminSession();
-          router.replace("/admin-login");
+          router.replace("/connexion?mode=email");
           return;
         }
         setReady(true);
       } catch {
         if (cancelled) return;
         clearAdminSession();
-        router.replace("/admin-login");
+        router.replace("/connexion?mode=email");
       }
     }
 

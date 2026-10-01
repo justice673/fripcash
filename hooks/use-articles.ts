@@ -2,8 +2,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   fetchListing,
   fetchListings,
+  fetchMyListings,
   createListing,
   updateListing,
+  updateListingPrice,
+  updateListingStock,
+  publishListing,
+  hideListing,
   deleteListing,
   attachListingMedia,
   listingImageUrl,
@@ -168,6 +173,35 @@ export function listingToArticle(
 
   const parts = categoryParts(l.categoryId, categoriesById ?? new Map());
 
+  const displayRaw = Number(
+    (l as Listing & { displayPriceGnf?: number }).displayPriceGnf ?? l.priceGnf
+  );
+  const netPriceGnf = Number(l.netPriceGnf);
+  const buyerPrice = Number.isFinite(displayRaw) ? displayRaw : 0;
+  const netPrice = Number.isFinite(netPriceGnf) ? netPriceGnf : buyerPrice;
+
+  const sellerBlob = l.seller ?? null;
+  const sellerProfile = l.sellerProfile ?? null;
+  const sellerPseudo =
+    sellerBlob?.name ||
+    sellerBlob?.displayName ||
+    sellerBlob?.username ||
+    sellerProfile?.displayName ||
+    "vendeur";
+  const sellerId =
+    sellerBlob?.id || sellerProfile?.id || l.sellerProfileId || "";
+  const sellerRating = Number(
+    sellerBlob?.rating ??
+      (sellerProfile as { rating?: number } | null)?.rating
+  );
+  const sellerReviews = Number(
+    sellerBlob?.reviewCount ??
+      sellerBlob?.reviewsCount ??
+      (sellerProfile as { reviewCount?: number; reviewsCount?: number } | null)
+        ?.reviewCount ??
+      (sellerProfile as { reviewsCount?: number } | null)?.reviewsCount
+  );
+
   return {
     _id: l.id,
     title: l.title,
@@ -177,20 +211,25 @@ export function listingToArticle(
     rootCategory: parts.root,
     subCategory: parts.sub,
     categoryId: l.categoryId || "",
-    price: l.priceGnf,
-    netPrice: l.netPriceGnf ?? l.priceGnf,
-    commissionRate: l.commissionRate ?? 0,
-    commissionAmount: l.commissionAmountGnf ?? 0,
+    price: buyerPrice,
+    netPrice,
+    commissionRate: Number(l.commissionRate) || 0,
+    commissionAmount: Number(l.commissionAmountGnf) || 0,
     negotiable: l.negotiable === true,
     discountEnabled: l.discountEnabled === true,
     compareAtPrice: l.compareAtPriceGnf ?? null,
-    shippingCost: 0,
+    shippingCost: Number(
+      (l as Listing & { shippingCostGnf?: number }).shippingCostGnf ?? 0
+    ) || 0,
     condition: l.conditionNote || "Bon état",
     stock: l.quantity ?? 1,
     status: mapStatus(l.status),
     seller: {
-      _id: l.sellerProfileId || "",
-      pseudo: "vendeur",
+      _id: sellerId,
+      pseudo: sellerPseudo,
+      rating: Number.isFinite(sellerRating) ? sellerRating : 0,
+      reviewCount: Number.isFinite(sellerReviews) ? sellerReviews : 0,
+      reviewsCount: Number.isFinite(sellerReviews) ? sellerReviews : 0,
     },
     favoritesCount:
       typeof (l as unknown as { favoritesCount?: number }).favoritesCount ===
@@ -385,21 +424,11 @@ export function useMyArticles(status?: string) {
       const me = await fetchMe();
       if (!me.seller) return [] as DashboardArticle[];
 
-      const profileId = await resolveSellerProfileId(me);
-      if (!profileId) {
-        // No sales yet and /me has no profileId — cannot attribute public listings.
-        return [] as DashboardArticle[];
-      }
-
       const [rows, catMap] = await Promise.all([
-        fetchListings(),
+        fetchMyListings(status ? { status: status.toUpperCase() } : undefined),
         loadCategoryMap(),
       ]);
-      let list = rows
-        .filter((l) => l.sellerProfileId === profileId)
-        .map((l) => listingToArticle(l, catMap));
-      if (status) list = list.filter((a) => a.status === status);
-      return list;
+      return rows.map((l) => listingToArticle(l, catMap));
     },
   });
 }
@@ -424,12 +453,13 @@ export function useCreateArticle() {
         (body as { netPriceGnf?: number }).netPriceGnf ??
         body.price ??
         0;
+      // Server assigns destination from seller profile — do not send it.
+      void destination;
       const created = await createListing({
         title: body.title || "Nouvel article",
         description: body.description,
         netPriceGnf: Math.round(net),
-        quantity: Math.max(1, body.stock ?? 1),
-        destination,
+        stock: Math.max(1, body.stock ?? 1),
         categoryId: body.categoryId || undefined,
         conditionNote: body.condition,
         negotiable: body.negotiable === true,
@@ -502,14 +532,8 @@ export function useUpdateArticle() {
       const patch: Parameters<typeof updateListing>[1] = {
         title: body.title,
         description: body.description,
-        netPriceGnf: net !== undefined ? Math.round(net) : undefined,
-        quantity: body.stock,
         conditionNote: body.condition,
         categoryId: body.categoryId,
-        destination: body.listingDestination
-          ? ((DEST_TO_API[body.listingDestination] ||
-              body.listingDestination) as ListingDestination)
-          : undefined,
         negotiable:
           body.negotiable !== undefined ? body.negotiable === true : undefined,
         discountEnabled:
@@ -525,10 +549,11 @@ export function useUpdateArticle() {
                 ? Math.round(body.compareAtPrice)
                 : undefined,
       };
-      if (body.status === "sold") patch.status = "SOLD";
-      if (body.status === "pending") patch.status = "DRAFT";
-      if (body.status === "active") patch.status = "ACTIVE";
       await updateListing(id, patch);
+      if (net !== undefined) await updateListingPrice(id, Math.round(net));
+      if (body.stock !== undefined) await updateListingStock(id, body.stock);
+      if (body.status === "pending") await hideListing(id);
+      if (body.status === "active") await publishListing(id);
 
       const files = body.imageFiles?.filter(Boolean) ?? [];
       if (files.length > 0) {

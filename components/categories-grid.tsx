@@ -14,20 +14,33 @@ const AREA_MAP: Record<string, string> = {
   Enseignes: "enseignes",
 };
 
+function areaKey(name: string, slug?: string) {
+  return (
+    AREA_MAP[name] ||
+    slug ||
+    name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "")
+      .slice(0, 24) ||
+    "cat"
+  );
+}
+
+type Cat = { label: string; href: string; area: string; image: string };
+
 export function CategoriesGrid() {
   const { data: rawCategories = [] } = useCategories();
 
   // Only categories with a seeded Cloudinary imageUrl from the API.
-  const categories = rawCategories
+  const categories: Cat[] = rawCategories
     .filter((cat: { image?: string }) => !!cat.image)
     .slice(0, 6)
-    .map((cat: { name: string; slug?: string; image?: string }) => ({
+    .map((cat: { name: string; slug?: string; image?: string }, i: number) => ({
       label: cat.name,
       href: `/produits?category=${encodeURIComponent(cat.name)}`,
-      area:
-        AREA_MAP[cat.name] ||
-        cat.slug ||
-        cat.name.toLowerCase().replace(/[^a-z]/g, ""),
+      area: `${areaKey(cat.name, cat.slug)}_${i}`,
       image: cat.image as string,
     }));
 
@@ -39,56 +52,131 @@ export function CategoriesGrid() {
         Explorer les catégories
       </h2>
 
-      {/* Desktop grid */}
-      <div
-        className="hidden sm:grid gap-3"
-        style={{
-          gridTemplateColumns: "2fr 1fr 1fr",
-          gridTemplateRows: "260px 180px 180px",
-          gridTemplateAreas: `
-            "${categories[0]?.area || "a"} ${categories[1]?.area || "b"} ${categories[5]?.area || "f"}"
-            "${categories[0]?.area || "a"} ${categories[2]?.area || "c"} ${categories[3]?.area || "d"}"
-            "${categories[4]?.area || "e"} ${categories[2]?.area || "c"} ${categories[3]?.area || "d"}"
-          `,
-        }}
-      >
-        {categories.map((cat) => (
-          <CategoryCard key={cat.area} cat={cat} />
-        ))}
-      </div>
+      {/* Desktop — mosaic only when we have a full set; otherwise simple grid */}
+      {categories.length >= 6 ? (
+        <div
+          className="hidden sm:grid gap-3"
+          style={{
+            gridTemplateColumns: "2fr 1fr 1fr",
+            gridTemplateRows: "260px 180px 180px",
+            gridTemplateAreas: `
+              "${categories[0].area} ${categories[1].area} ${categories[5].area}"
+              "${categories[0].area} ${categories[2].area} ${categories[3].area}"
+              "${categories[4].area} ${categories[2].area} ${categories[3].area}"
+            `,
+          }}
+        >
+          {categories.map((cat) => (
+            <CategoryCard key={cat.area} cat={cat} />
+          ))}
+        </div>
+      ) : (
+        <div
+          className="hidden sm:grid gap-3"
+          style={{
+            gridTemplateColumns:
+              categories.length === 1
+                ? "1fr"
+                : categories.length === 2
+                  ? "1fr 1fr"
+                  : "repeat(3, 1fr)",
+            gridAutoRows: "220px",
+          }}
+        >
+          {categories.map((cat) => (
+            <CategoryCard key={cat.area} cat={cat} useArea={false} />
+          ))}
+        </div>
+      )}
 
-      {/* Mobile grid */}
+      {/* Mobile — only as many rows as needed (no ghost empty rows) */}
       <div
         className="grid sm:hidden gap-3"
-        style={{
-          gridTemplateColumns: "1fr 1fr",
-          gridTemplateRows: "200px 140px 140px 140px",
-          gridTemplateAreas: `
-            "${categories[0]?.area || "a"} ${categories[0]?.area || "a"}"
-            "${categories[1]?.area || "b"} ${categories[5]?.area || "f"}"
-            "${categories[2]?.area || "c"} ${categories[3]?.area || "d"}"
-            "${categories[4]?.area || "e"} ${categories[4]?.area || "e"}"
-          `,
-        }}
+        style={mobileGridStyle(categories)}
       >
         {categories.map((cat) => (
-          <CategoryCard key={cat.area} cat={cat} />
+          <CategoryCard
+            key={cat.area}
+            cat={cat}
+            useArea={categories.length >= 3}
+          />
         ))}
       </div>
     </section>
   );
 }
 
+function mobileGridStyle(categories: Cat[]): React.CSSProperties {
+  const n = categories.length;
+  if (n === 1) {
+    return {
+      gridTemplateColumns: "1fr",
+      gridAutoRows: "200px",
+    };
+  }
+  if (n === 2) {
+    return {
+      gridTemplateColumns: "1fr 1fr",
+      gridAutoRows: "160px",
+    };
+  }
+  if (n === 3) {
+    return {
+      gridTemplateColumns: "1fr 1fr",
+      gridTemplateRows: "180px 140px",
+      gridTemplateAreas: `
+        "${categories[0].area} ${categories[0].area}"
+        "${categories[1].area} ${categories[2].area}"
+      `,
+    };
+  }
+  if (n === 4) {
+    return {
+      gridTemplateColumns: "1fr 1fr",
+      gridTemplateRows: "180px 140px 140px",
+      gridTemplateAreas: `
+        "${categories[0].area} ${categories[0].area}"
+        "${categories[1].area} ${categories[2].area}"
+        "${categories[3].area} ${categories[3].area}"
+      `,
+    };
+  }
+  if (n === 5) {
+    return {
+      gridTemplateColumns: "1fr 1fr",
+      gridTemplateRows: "180px 140px 140px",
+      gridTemplateAreas: `
+        "${categories[0].area} ${categories[0].area}"
+        "${categories[1].area} ${categories[2].area}"
+        "${categories[3].area} ${categories[4].area}"
+      `,
+    };
+  }
+  // 6+
+  return {
+    gridTemplateColumns: "1fr 1fr",
+    gridTemplateRows: "200px 140px 140px 140px",
+    gridTemplateAreas: `
+      "${categories[0].area} ${categories[0].area}"
+      "${categories[1].area} ${categories[5].area}"
+      "${categories[2].area} ${categories[3].area}"
+      "${categories[4].area} ${categories[4].area}"
+    `,
+  };
+}
+
 function CategoryCard({
   cat,
+  useArea = true,
 }: {
-  cat: { label: string; href: string; area: string; image: string };
+  cat: Cat;
+  useArea?: boolean;
 }) {
   return (
     <Link
       href={cat.href}
-      className="relative overflow-hidden rounded-xl group"
-      style={{ gridArea: cat.area }}
+      className="relative min-h-[140px] overflow-hidden rounded-xl group"
+      style={useArea ? { gridArea: cat.area } : undefined}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img

@@ -94,8 +94,12 @@ export default function WalletPage() {
       showToast(reservedBalance > 0 ? "Solde disponible insuffisant (une partie est réservée pour tes commandes)" : "Solde insuffisant", "error");
       return;
     }
+    if (!withdrawPhone?.trim()) {
+      showToast("Numéro Orange Money requis", "error");
+      return;
+    }
     withdrawMut.mutate(
-      { amount, phone: withdrawPhone || undefined },
+      { amount, phone: withdrawPhone.trim() },
       {
         onSuccess: () => {
           showToast(`Retrait de ${amount.toLocaleString("fr-FR")} GNF initié`, "success");

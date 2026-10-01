@@ -203,7 +203,7 @@ function NavbarSearch({ className }: { className?: string }) {
                       </p>
                     </div>
                     <p className="shrink-0 text-sm font-semibold text-foreground tabular-nums">
-                      {item.price.toLocaleString("fr-FR")} GNF
+                      {(item.price ?? 0).toLocaleString("fr-FR")} GNF
                     </p>
                   </Link>
                 </li>

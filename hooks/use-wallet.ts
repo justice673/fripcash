@@ -28,11 +28,20 @@ export function useWalletBalance() {
     queryFn: async () => {
       const raw: any = await fetchWalletBalance();
       return {
-        balance: raw.balanceGnf ?? raw.balance ?? 0,
+        balance: raw.availableGnf ?? raw.balanceGnf ?? raw.balance ?? 0,
         availableBalance:
-          raw.availableBalanceGnf ?? raw.availableBalance ?? raw.balance ?? 0,
-        reservedBalance: raw.reservedBalanceGnf ?? raw.reservedBalance ?? 0,
-        currency: "GNF",
+          raw.availableGnf ??
+          raw.availableBalanceGnf ??
+          raw.availableBalance ??
+          raw.balance ??
+          0,
+        reservedBalance:
+          raw.pendingEscrowGnf ??
+          raw.escrowGnf ??
+          raw.reservedBalanceGnf ??
+          raw.reservedBalance ??
+          0,
+        currency: raw.currency || "GNF",
         ...raw,
       };
     },
@@ -64,8 +73,14 @@ export function useWithdraw() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (body: { amount: number; phone?: string }) => {
-      return requestWithdraw(Math.round(body.amount));
+    mutationFn: async (body: { amount: number; phone: string }) => {
+      if (!body.phone?.trim()) {
+        throw new Error("Numéro Orange Money requis");
+      }
+      const phone = body.phone.startsWith("+")
+        ? body.phone
+        : `+224${body.phone.replace(/^0+/, "")}`;
+      return requestWithdraw(Math.round(body.amount), phone);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wallet"] });

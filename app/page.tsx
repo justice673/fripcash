@@ -2,6 +2,7 @@ import { Header } from "@/components/header";
 import { HeroSection } from "@/components/hero-section";
 import { InfoBanner } from "@/components/info-banner";
 import { CategoriesGrid } from "@/components/categories-grid";
+import { HomePromotionsSection } from "@/components/home-promotions-section";
 import { ProductGrid } from "@/components/product-grid";
 import { NewProductsSlider } from "@/components/new-products-slider";
 import { CtaSection } from "@/components/cta-section";
@@ -20,6 +21,7 @@ export default function Home() {
       <HeroSection />
       <InfoBanner message="Les frais de port sont calculés lors du paiement." />
       <CategoriesGrid />
+      <HomePromotionsSection />
       <section className="container mx-auto px-4 pb-12">
         <h2 className="text-2xl font-bold tracking-tight mb-6">
           Articles populaires

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { OtpInput } from "@/components/ui/otp-input";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ import {
   clearToken,
   type AuthUser,
 } from "@/lib/api";
-import { mapMeToUiUser } from "@/hooks/use-auth";
+import { mapMeToUiUser, useAdminLogin } from "@/hooks/use-auth";
 import {
   AUTH_COUNTRIES,
   AUTH_COUNTRY_OPTIONS,
@@ -39,7 +39,7 @@ import { recordLoginSession } from "@/lib/admin-session-tracker";
 const DEV_OTP =
   process.env.NODE_ENV === "development" ? "000000" : "";
 
-/** Marketplace /connexion is consumer-only (SRS auth surfaces). */
+/** Marketplace phone OTP is consumer-only (SRS auth surfaces). */
 function rejectNonConsumerSession(user?: AuthUser | null): void {
   const audience = user?.authAudience?.toUpperCase();
   const kind = user?.userKind?.toUpperCase();
@@ -52,7 +52,7 @@ function rejectNonConsumerSession(user?: AuthUser | null): void {
   if (audience === "ADMIN" || kind === "ADMIN") {
     clearToken();
     throw new Error(
-      "Compte administrateur — connecte-toi sur la page Admin (lien ci-dessous)."
+      "Compte administrateur — connecte-toi avec email et mot de passe (pays France)."
     );
   }
 }
@@ -73,19 +73,37 @@ function connexionErrorMessage(err: unknown, fallback: string): string {
     code === "FORBIDDEN_AUDIENCE"
   ) {
     if (msg.includes("staff") || msg.includes("admin")) {
-      return "Compte administrateur — ce n’est pas la bonne page. Utilise la connexion Admin.";
+      return "Compte administrateur — utilise email + mot de passe (sélectionne France).";
     }
-    return "Ce compte n’a pas accès à l’espace acheteur/vendeur. Livreurs : app FripCash. Admins : page Admin.";
+    return "Ce compte n’a pas accès à l’espace acheteur/vendeur. Livreurs : app FripCash.";
   }
 
   return err.body.message || fallback;
 }
 export default function ConnexionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center py-16">
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+        </div>
+      }
+    >
+      <ConnexionInner />
+    </Suspense>
+  );
+}
+
+function ConnexionInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const adminLogin = useAdminLogin();
 
-  const [countryId, setCountryId] = useState<AuthCountryId>("GN");
+  const [countryId, setCountryId] = useState<AuthCountryId>(() =>
+    searchParams.get("mode") === "email" ? "FR" : "GN"
+  );
   const country = AUTH_COUNTRIES[countryId];
   const isEmailAuth = country.authMethod === "email";
 
@@ -134,7 +152,7 @@ export default function ConnexionPage() {
       clearToken();
       if (err instanceof ApiError && err.body.code === "FORBIDDEN_AUDIENCE") {
         throw new Error(
-          "Ce compte n’a pas accès à l’espace web acheteur/vendeur. Livreurs : utilise l’app (Espace livreur). Admins : /admin-login."
+          "Ce compte n’a pas accès à l’espace web acheteur/vendeur. Livreurs : utilise l’app (Espace livreur)."
         );
       }
       throw err;
@@ -186,10 +204,21 @@ export default function ConnexionPage() {
       return;
     }
     setLoading(true);
+    const trimmed = email.trim();
     try {
-      const session = await signInEmail(email.trim(), password);
+      // Staff first: POST /auth/admin/login (marketplace sign-in rejects staff).
+      try {
+        await adminLogin.mutateAsync({ email: trimmed, password });
+        toast("Connexion réussie ! Bienvenue, Admin.");
+        router.push("/admin");
+        return;
+      } catch {
+        // Not staff or wrong admin creds — try consumer email sign-in.
+      }
+
+      const session = await signInEmail(trimmed, password);
       rejectNonConsumerSession(session.user);
-      await finishLogin(email.trim());
+      await finishLogin(trimmed);
     } catch (err) {
       toast(connexionErrorMessage(err, "Email ou mot de passe incorrect."), "error");
     } finally {
@@ -226,7 +255,7 @@ export default function ConnexionPage() {
         <h1 className="text-2xl font-bold text-foreground">Bon retour !</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {isEmailAuth
-            ? "Connexion par email — compte France."
+            ? "Connexion par email — comptes France et administrateurs."
             : "Connexion par SMS — même compte que l'app FripCash."}
         </p>
       </div>
@@ -329,7 +358,7 @@ export default function ConnexionPage() {
             )}
             <p className="mt-1.5 text-xs text-muted-foreground">
               {isEmailAuth
-                ? "Connexion par email et mot de passe."
+                ? "Email + mot de passe — admin et comptes France."
                 : `${country.name} ${country.code} — tu recevras un code à 6 chiffres.`}
             </p>
           </div>
@@ -443,15 +472,18 @@ export default function ConnexionPage() {
           </Link>
         </p>
       )}
-      <p className="mt-4 text-center text-xs text-muted-foreground">
-        Administrateur ?{" "}
-        <Link
-          href="/admin-login"
-          className="font-semibold text-primary hover:underline"
-        >
-          Connexion Admin
-        </Link>
-      </p>
+      {!isEmailAuth && (
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          Admin ou compte France ?{" "}
+          <button
+            type="button"
+            onClick={() => handleCountryChange("FR")}
+            className="font-semibold text-primary hover:underline"
+          >
+            Connexion par email
+          </button>
+        </p>
+      )}
     </div>
   );
 }

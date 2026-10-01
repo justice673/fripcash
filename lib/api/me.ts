@@ -35,9 +35,18 @@ export async function fetchMe() {
 }
 
 export async function updateMe(body: {
+  /** @deprecated Prefer `displayName` (from-be). Mapped to displayName. */
   name?: string;
+  displayName?: string;
   preferredLocale?: "FR" | "EN";
+  marketingOptIn?: boolean;
+  zoneId?: string;
+  address?: string;
 }) {
-  const { data } = await api.patch<Me>("/me", body);
+  const { name, displayName, ...rest } = body;
+  const { data } = await api.patch<Me>("/me", {
+    ...rest,
+    displayName: displayName ?? name,
+  });
   return data;
 }

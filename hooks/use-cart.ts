@@ -5,10 +5,15 @@ import {
   updateCartItem,
   removeCartItem,
   clearServerCart,
-  checkout,
+  validateCart,
+  quoteCheckout,
+  createPayment,
+  getPayment,
   listingImageUrl,
   readToken,
   type Cart,
+  type CheckoutAddress,
+  type FulfillmentMode,
 } from "@/lib/api";
 
 function hasToken(): boolean {
@@ -77,10 +82,65 @@ export function useClearServerCart() {
   });
 }
 
+export function useValidateCart() {
+  return useMutation({
+    mutationFn: validateCart,
+  });
+}
+
+export function useQuoteCheckout() {
+  return useMutation({
+    mutationFn: (body: {
+      cartRevision?: string;
+      fulfillmentMode: FulfillmentMode;
+      address: CheckoutAddress;
+    }) => quoteCheckout(body),
+  });
+}
+
+/** Quote → createPayment → poll until terminal (from-be checkout handoff). */
 export function useCheckout() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: checkout,
+    mutationFn: async (body: {
+      fulfillmentMode: FulfillmentMode;
+      address: CheckoutAddress;
+      orangeMoneyPhone: string;
+    }) => {
+      const validated = await validateCart();
+      if (validated && validated.ok === false) {
+        const first = validated.errors?.[0];
+        throw new Error(first?.message || "Panier invalide");
+      }
+      const quote = await quoteCheckout({
+        fulfillmentMode: body.fulfillmentMode,
+        address: body.address,
+      });
+      let payment = await createPayment(
+        {
+          cartRevision: quote.cartRevision,
+          fulfillmentMode: body.fulfillmentMode,
+          address: body.address,
+          orangeMoneyPhone: body.orangeMoneyPhone,
+          quoteGrandTotalGnf: quote.grandTotalGnf,
+        },
+        crypto.randomUUID()
+      );
+      for (let i = 0; i < 40; i++) {
+        if (payment.status === "succeeded" || payment.status === "failed") break;
+        await new Promise((r) => setTimeout(r, 2500));
+        payment = await getPayment(payment.id);
+      }
+      if (payment.status === "failed") {
+        throw new Error("Paiement échoué — réessaie.");
+      }
+      return {
+        success: payment.status === "succeeded",
+        paymentIntent: payment,
+        orders: (payment.orderIds || []).map((id) => ({ id })),
+        quote,
+      };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
@@ -97,12 +157,13 @@ export function cartToUiItems(cart: Cart | undefined) {
     image:
       listingImageUrl(item.listing.media?.[0]) ||
       "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&h=800&fit=crop",
-    brand: "",
+    brand: item.listing.title || "",
+    title: item.listing.title || "",
     condition: "",
-    price: item.listing.priceGnf,
-    priceWithShipping: item.listing.priceGnf,
+    size: undefined as string | undefined,
+    price: item.listing.displayPriceGnf ?? item.listing.priceGnf,
+    priceWithShipping: item.listing.displayPriceGnf ?? item.listing.priceGnf,
     href: `/article/${item.listingId}`,
     quantity: item.quantity,
-    title: item.listing.title,
   }));
 }

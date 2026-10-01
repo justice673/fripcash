@@ -1,5 +1,7 @@
 # 02 — Actors and roles
 
+**UI inventory:** [Admin/web audit](../UI-AUDIT-ADMIN-WEB.md) · [Flutter audit](file:///home/justice/frip_cash/docs/UI-AUDIT-AND-GAPS.md)
+
 ## 2.1 Canonical account model
 Do **not** model the user as a single overwriteable “current role” enum for day-to-day switching.
 

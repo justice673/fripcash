@@ -1,28 +1,25 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  fetchPurchases,
-  fetchSales,
+  fetchOrders,
   fetchOrder,
-  transitionOrderStatus,
+  prepareOrder,
+  readyOrder,
+  confirmHandoff,
+  confirmReceipt,
+  markOrderInTransit,
+  markOrderDelivered,
+  sellerRefundOrder,
   openDispute,
   fetchInvoiceReceipt,
-  checkout,
+  quoteCheckout,
+  createPayment,
+  getPayment,
+  validateCart,
   type OrderStatus,
+  type FulfillmentMode,
+  type CheckoutAddress,
 } from "@/lib/api";
-import { ORDER_STATUS_TO_UI, ORDER_STATUS_TO_API } from "@/lib/api/mappers";
-import {
-  listMockOrders,
-  mockAssignCourier,
-  mockConfirmReception,
-  mockMarkShipped,
-  mockOpenDispute,
-  mockPrepareOrder,
-  mockSellerRefund,
-  type MockOrder,
-} from "@/lib/mock-orders-store";
-
-/** Web dashboard uses local mock order lifecycle until BE tracking is complete. */
-const USE_MOCK_ORDERS = true;
+import { ORDER_STATUS_TO_UI } from "@/lib/api/mappers";
 
 function normalizeOrder(raw: any, role: "buyer" | "seller" = "buyer") {
   const status =
@@ -58,15 +55,12 @@ function normalizeOrder(raw: any, role: "buyer" | "seller" = "buyer") {
     courierName: raw.courierName ?? null,
     pickupCode: raw.pickupCode,
     disputeReason: raw.disputeReason,
+    nextActions: raw.nextActions || [],
     timeline: raw.timeline || [],
     createdAt: raw.createdAt,
     role,
     raw,
   };
-}
-
-function fromMock(o: MockOrder) {
-  return normalizeOrder(o, o.role);
 }
 
 function asArray(data: unknown): any[] {
@@ -84,35 +78,24 @@ export function useMyOrders(params?: {
   isSeller?: boolean;
 }) {
   return useQuery({
-    queryKey: [
-      "orders",
-      params,
-      USE_MOCK_ORDERS ? "mock" : "live",
-      params?.isSeller ? "seller" : "buyer-only",
-    ],
+    queryKey: ["orders", params, "live", params?.isSeller ? "seller" : "buyer-only"],
     queryFn: async () => {
-      if (USE_MOCK_ORDERS) {
-        let list = listMockOrders(params).map(fromMock);
-        // Buyer-only accounts never see "Mes ventes" demo rows.
-        if (params?.isSeller === false) {
-          list = list.filter((o) => o.role === "buyer");
-        }
-        return list;
-      }
       const type = params?.type;
       let list: ReturnType<typeof normalizeOrder>[] = [];
       if (type === "sell") {
-        list = asArray(await fetchSales()).map((o) =>
+        list = asArray(await fetchOrders({ as: "seller" })).map((o) =>
           normalizeOrder(o, "seller")
         );
       } else if (type === "buy") {
-        list = asArray(await fetchPurchases()).map((o) =>
+        list = asArray(await fetchOrders({ as: "buyer" })).map((o) =>
           normalizeOrder(o, "buyer")
         );
       } else {
         const [purchases, sales] = await Promise.all([
-          fetchPurchases(),
-          fetchSales(),
+          fetchOrders({ as: "buyer" }),
+          params?.isSeller === false
+            ? Promise.resolve([])
+            : fetchOrders({ as: "seller" }),
         ]);
         list = [
           ...asArray(purchases).map((o) => normalizeOrder(o, "buyer")),
@@ -129,15 +112,8 @@ export function useMyOrders(params?: {
 
 export function useOrder(id: string) {
   return useQuery({
-    queryKey: ["orders", id, USE_MOCK_ORDERS ? "mock" : "live"],
-    queryFn: async () => {
-      if (USE_MOCK_ORDERS) {
-        const hit = listMockOrders().find((o) => o._id === id);
-        if (!hit) throw new Error("Commande introuvable");
-        return fromMock(hit);
-      }
-      return normalizeOrder(await fetchOrder(id));
-    },
+    queryKey: ["orders", id, "live"],
+    queryFn: async () => normalizeOrder(await fetchOrder(id)),
     enabled: !!id,
   });
 }
@@ -145,20 +121,55 @@ export function useOrder(id: string) {
 export function useCreateOrder() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (_body?: Record<string, unknown>) => {
-      const result = await checkout();
-      const orders = Array.isArray((result as any)?.orders)
-        ? (result as any).orders
-        : [];
-      const first = orders[0];
-      return {
-        success: true,
-        data: {
-          _id: first?.id || first?._id || `ord_${Date.now()}`,
-          ...first,
+    mutationFn: async (body: {
+      fulfillmentMode: FulfillmentMode;
+      address: CheckoutAddress;
+      orangeMoneyPhone: string;
+      cartRevision?: string;
+    }) => {
+      const validated = await validateCart();
+      if (validated && validated.ok === false) {
+        const first = validated.errors?.[0];
+        throw new Error(first?.message || "Panier invalide");
+      }
+      const quote = await quoteCheckout({
+        cartRevision: body.cartRevision,
+        fulfillmentMode: body.fulfillmentMode,
+        address: body.address,
+      });
+      const payment = await createPayment(
+        {
+          cartRevision: quote.cartRevision,
+          fulfillmentMode: body.fulfillmentMode,
+          address: body.address,
+          orangeMoneyPhone: body.orangeMoneyPhone,
+          quoteGrandTotalGnf: quote.grandTotalGnf,
         },
-        paymentIntent: (result as any)?.paymentIntent,
-        orders,
+        crypto.randomUUID()
+      );
+
+      let current = payment;
+      for (let i = 0; i < 40; i++) {
+        if (
+          current.status === "succeeded" ||
+          current.status === "failed"
+        ) {
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 2500));
+        current = await getPayment(current.id);
+      }
+      if (current.status === "failed") {
+        throw new Error("Paiement échoué — réessaie.");
+      }
+      return {
+        success: current.status === "succeeded",
+        data: {
+          _id: current.orderIds?.[0] || current.id,
+        },
+        paymentIntent: current,
+        orders: (current.orderIds || []).map((id) => ({ id })),
+        quote,
       };
     },
     onSuccess: () => {
@@ -172,11 +183,7 @@ export function useConfirmDelivery() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id }: { id: string; code?: string }) => {
-      if (USE_MOCK_ORDERS) {
-        mockConfirmReception(id);
-        return { success: true };
-      }
-      await transitionOrderStatus(id, { status: "DELIVERED" });
+      await confirmReceipt(id);
       return { success: true };
     },
     onSuccess: () => {
@@ -190,11 +197,7 @@ export function useShipOrder() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id }: { id: string; trackingNumber?: string }) => {
-      if (USE_MOCK_ORDERS) {
-        mockMarkShipped(id);
-        return { success: true };
-      }
-      await transitionOrderStatus(id, { status: "IN_TRANSIT" });
+      await markOrderInTransit(id);
       return { success: true };
     },
     onSuccess: () => {
@@ -207,11 +210,20 @@ export function usePrepareOrder() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
-      if (USE_MOCK_ORDERS) {
-        mockPrepareOrder(id);
-        return { success: true };
-      }
-      await transitionOrderStatus(id, { status: "PREPARING" });
+      await prepareOrder(id);
+      return { success: true };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    },
+  });
+}
+
+export function useReadyOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      await readyOrder(id);
       return { success: true };
     },
     onSuccess: () => {
@@ -225,16 +237,12 @@ export function useAssignCourier() {
   return useMutation({
     mutationFn: async ({
       id,
-      courierName,
     }: {
       id: string;
       courierName?: string;
     }) => {
-      if (USE_MOCK_ORDERS) {
-        mockAssignCourier(id, courierName);
-        return { success: true };
-      }
-      await transitionOrderStatus(id, { status: "COURIER_ASSIGNED" });
+      // Courier assignment is courier-app driven; mark ready for pickup/handoff.
+      await readyOrder(id);
       return { success: true };
     },
     onSuccess: () => {
@@ -255,20 +263,27 @@ export function useTransitionOrder() {
       status: string;
       note?: string;
     }) => {
-      if (USE_MOCK_ORDERS) {
-        if (status === "preparing") mockPrepareOrder(id);
-        else if (status === "courierAssigned") mockAssignCourier(id);
-        else if (status === "inTransit") mockMarkShipped(id);
-        else if (status === "fundsReleased" || status === "delivered")
-          mockConfirmReception(id);
-        else if (status === "disputed")
-          mockOpenDispute(id, note || "Litige");
-        else if (status === "refunded") mockSellerRefund(id);
-        return { success: true };
+      switch (status) {
+        case "preparing":
+          return prepareOrder(id);
+        case "readyForPickup":
+        case "courierAssigned":
+          return readyOrder(id);
+        case "inTransit":
+          return markOrderInTransit(id);
+        case "delivered":
+          return markOrderDelivered(id);
+        case "fundsReleased":
+          return confirmReceipt(id);
+        case "disputed":
+          return openDispute(id, note || "Litige");
+        case "refunded":
+          return sellerRefundOrder(id);
+        case "confirmHandoff":
+          return confirmHandoff(id, note);
+        default:
+          throw new Error(`Transition non supportée: ${status}`);
       }
-      const apiStatus = (ORDER_STATUS_TO_API[status] ||
-        status.toUpperCase()) as OrderStatus;
-      return transitionOrderStatus(id, { status: apiStatus, note });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
@@ -285,13 +300,7 @@ export function useOpenDispute() {
     }: {
       orderId: string;
       reason: string;
-    }) => {
-      if (USE_MOCK_ORDERS) {
-        mockOpenDispute(orderId, reason);
-        return { success: true };
-      }
-      return openDispute(orderId, reason);
-    },
+    }) => openDispute(orderId, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
     },
@@ -301,13 +310,7 @@ export function useOpenDispute() {
 export function useSellerRefund() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id }: { id: string }) => {
-      if (USE_MOCK_ORDERS) {
-        mockSellerRefund(id);
-        return { success: true };
-      }
-      throw new Error("Remboursement vendeur non branché sur l’API.");
-    },
+    mutationFn: async ({ id }: { id: string }) => sellerRefundOrder(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["wallet"] });
@@ -319,6 +322,9 @@ export function useInvoiceReceipt(id: string) {
   return useQuery({
     queryKey: ["invoice", id],
     queryFn: () => fetchInvoiceReceipt(id),
-    enabled: !!id && !USE_MOCK_ORDERS,
+    enabled: !!id,
   });
 }
+
+// silence unused OrderStatus import warning in some TS configs
+export type { OrderStatus };

@@ -25,10 +25,6 @@ import {
 } from "react-icons/fi";
 import { LuHandshake } from "react-icons/lu";
 import { GetAppBanner } from "@/components/dashboard/get-app-banner";
-import {
-  listMockOrders,
-  MOCK_COURIER_OPTIONS,
-} from "@/lib/mock-orders-store";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMe } from "@/hooks/use-auth";
 import Link from "next/link";
@@ -138,7 +134,7 @@ export default function MyOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [disputeReason, setDisputeReason] = useState("");
   const [showDisputeForm, setShowDisputeForm] = useState(false);
-  const [pickedCourier, setPickedCourier] = useState(MOCK_COURIER_OPTIONS[0]);
+  const [pickedCourier, setPickedCourier] = useState("Livreur FripCash");
 
   // Buyer-only: never stay on "Mes ventes"
   const effectiveTab =
@@ -166,8 +162,11 @@ export default function MyOrdersPage() {
     setShowDisputeForm(false);
     setDisputeReason("");
     queryClient.invalidateQueries({ queryKey: ["orders"] });
-    const fresh = listMockOrders().find((o) => o._id === orderId);
+    const fresh = (orders || []).find(
+      (o: any) => o._id === orderId || o.id === orderId
+    );
     if (fresh) setSelectedOrder(enrichOne(fresh));
+    else setSelectedOrder(null);
   };
 
   const handleConfirmReception = (order: any) => {
@@ -634,20 +633,10 @@ export default function MyOrdersPage() {
                       selectedOrder.status === "sellerNotified") &&
                       selectedOrder.deliveryMode === "buyer-delivery" && (
                         <div className="space-y-2">
-                          <label className="text-xs text-muted-foreground">
-                            Assigner un livreur (démo)
-                          </label>
-                          <select
-                            value={pickedCourier}
-                            onChange={(e) => setPickedCourier(e.target.value)}
-                            className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm"
-                          >
-                            {MOCK_COURIER_OPTIONS.map((c) => (
-                              <option key={c} value={c}>
-                                {c}
-                              </option>
-                            ))}
-                          </select>
+                          <p className="text-xs text-muted-foreground">
+                            La prise en charge livreur se fait côté app livreur /
+                            Nest — marque la commande prête pour la remise.
+                          </p>
                           <button
                             type="button"
                             onClick={() => handleAssignCourier(selectedOrder)}
@@ -655,7 +644,7 @@ export default function MyOrdersPage() {
                             className="w-full h-10 rounded-lg border border-primary text-primary text-sm font-medium hover:bg-primary/5 disabled:opacity-50 flex items-center justify-center gap-2"
                           >
                             <FiTruck className="h-4 w-4" />
-                            Assigner le livreur
+                            Marquer prêt (livraison)
                           </button>
                         </div>
                       )}

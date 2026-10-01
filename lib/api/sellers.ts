@@ -72,9 +72,20 @@ export async function createLibraryItem(body: {
   return data;
 }
 
-export async function queueExcelImport(objectKey: string) {
-  const { data } = await api.post("/me/seller/tools/excel-import", {
-    objectKey,
-  });
+/** from-be: POST /me/seller/tools/library/publish */
+export async function publishLibraryItem(body: Record<string, unknown>) {
+  const { data } = await api.post("/me/seller/tools/library/publish", body);
+  return data;
+}
+
+/** from-be: POST /me/seller/tools/excel-import `{ rows: [...] }` */
+export async function queueExcelImport(
+  rowsOrObjectKey: Array<Record<string, unknown>> | string
+) {
+  const body =
+    typeof rowsOrObjectKey === "string"
+      ? { objectKey: rowsOrObjectKey }
+      : { rows: rowsOrObjectKey };
+  const { data } = await api.post("/me/seller/tools/excel-import", body);
   return data;
 }

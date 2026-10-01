@@ -41,7 +41,7 @@ export async function uploadListingMedia(
 
 /* ── Cloudinary (category + listing catalogue images) ────────────── */
 
-export type CloudinaryFolder = "listings" | "categories";
+export type CloudinaryFolder = "listings" | "categories" | "promotions";
 
 export type CloudinarySign = {
   cloudName: string;

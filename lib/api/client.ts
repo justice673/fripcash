@@ -58,7 +58,7 @@ export function getToken(): string | null {
 }
 
 function shouldRedirectOn401(pathname: string): boolean {
-  if (pathname.startsWith("/connexion") || pathname.startsWith("/admin-login")) {
+  if (pathname.startsWith("/connexion")) {
     return false;
   }
   // Public browse: don't bounce guests when an optional authed call 401s
@@ -84,7 +84,14 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const isAnonAuth =
     url.includes("/auth/phone-number/send-otp") ||
     url.includes("/auth/phone-number/verify") ||
+    url.includes("/auth/otp/") ||
+    url.includes("/auth/register") ||
+    url.includes("/auth/login") ||
+    url.includes("/auth/password/forgot") ||
+    url.includes("/auth/password/reset") ||
+    url.includes("/auth/media/register-cloudinary-sign") ||
     url.includes("/auth/sign-in/") ||
+    url.includes("/auth/sign-up/") ||
     url.includes("/auth/admin/login");
 
   if (!isAnonAuth) {

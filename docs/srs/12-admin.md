@@ -1,5 +1,7 @@
 # 12 — Admin console
 
+**Implemented UI status (this repo):** [UI-AUDIT-ADMIN-WEB.md](../UI-AUDIT-ADMIN-WEB.md) — live vs stub routes for `/admin/*`.
+
 ## 12.1 Access
 Staff-only web app (`/admin`). Separate login. All mutating actions audited.
 

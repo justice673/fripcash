@@ -40,6 +40,93 @@ export async function verifyOtp(phoneNumber: string, code: string) {
   return data;
 }
 
+/** from-be recommended: POST /auth/otp/request */
+export async function requestAuthOtp(body: {
+  phone: string;
+  purpose: "register" | "login" | "reset_password" | string;
+}) {
+  const purpose =
+    body.purpose === "reset" ? "reset_password" : body.purpose;
+  const { data } = await api.post("/auth/otp/request", {
+    phone: body.phone,
+    purpose,
+  });
+  return data;
+}
+
+/** from-be recommended: POST /auth/otp/verify → registrationSessionId / resetToken */
+export async function verifyAuthOtp(body: {
+  phone: string;
+  code: string;
+  purpose: "register" | "login" | "reset_password" | string;
+}) {
+  const purpose =
+    body.purpose === "reset" ? "reset_password" : body.purpose;
+  const { data } = await api.post("/auth/otp/verify", {
+    phone: body.phone,
+    code: body.code,
+    purpose,
+  });
+  return data;
+}
+
+/** from-be recommended password register */
+export async function registerConsumer(body: Record<string, unknown>) {
+  const { data } = await api.post<{
+    token?: string;
+    user?: AuthUser;
+  }>("/auth/register", body);
+  if (data.token) writeToken(data.token);
+  return data;
+}
+
+/** from-be recommended: POST /auth/login */
+export async function loginWithPassword(body: {
+  phone: string;
+  password: string;
+  termsAccepted: boolean;
+}) {
+  const { data } = await api.post<{
+    token?: string;
+    user?: AuthUser;
+  }>("/auth/login", body);
+  if (data.token) writeToken(data.token);
+  return data;
+}
+
+export async function registerCloudinarySign(body: {
+  phone: string;
+  registrationSessionId: string;
+}) {
+  const { data } = await api.post(
+    "/auth/media/register-cloudinary-sign",
+    body
+  );
+  return data;
+}
+
+export async function forgotPasswordPhone(phone: string) {
+  const { data } = await api.post("/auth/password/forgot", { phone });
+  return data;
+}
+
+export async function resetPasswordPhone(body: {
+  phone: string;
+  resetToken: string;
+  password: string;
+}) {
+  const { data } = await api.post("/auth/password/reset", body);
+  return data;
+}
+
+export async function changePassword(body: {
+  currentPassword: string;
+  newPassword: string;
+}) {
+  const { data } = await api.post("/auth/password/change", body);
+  return data;
+}
+
 export async function signOut() {
   try {
     await api.post("/auth/sign-out");

@@ -15,6 +15,7 @@ import {
   ShoppingBag,
   ShoppingCart,
   Tags,
+  Megaphone,
   Flag,
   AlertTriangle,
   CreditCard,
@@ -87,6 +88,7 @@ const navSections = [
       { href: "/admin/articles", label: "Articles", icon: ShoppingBag },
       { href: "/admin/commandes", label: "Commandes", icon: ShoppingCart },
       { href: "/admin/categories", label: "Catégories", icon: Tags },
+      { href: "/admin/promotions", label: "Promotions", icon: Megaphone },
       { href: "/admin/signalements", label: "Signalements", icon: Flag },
       { href: "/admin/litiges", label: "Litiges", icon: AlertTriangle },
     ],
@@ -117,7 +119,7 @@ export function AppSidebar() {
     logout();
     clearAdminSession();
     toast.success("Déconnexion réussie");
-    router.push("/admin-login");
+    router.push("/connexion?mode=email");
   };
 
   const closeMobile = () => setOpenMobile(false);

@@ -18,8 +18,10 @@ import {
 } from "@/components/ui/select";
 import { useCartStore } from "@/stores/cart-store";
 import { useToast } from "@/components/ui/toast";
-import { useCheckout, useAddCartItem } from "@/hooks/use-cart";
+import { useCheckout, useAddCartItem, useServerCart, cartToUiItems } from "@/hooks/use-cart";
 import { useWalletBalance } from "@/hooks/use-wallet";
+import { readToken } from "@/lib/api";
+import type { FulfillmentMode } from "@/lib/api";
 import { EmptyStateLottie } from "@/components/empty-state-lottie";
 import {
   FiHome,
@@ -88,22 +90,41 @@ const deliveryModes: { id: DeliveryMode; icon: React.ElementType; label: string;
 export default function CheckoutPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { items, removeItem, subtotal, totalWithShipping, clearCart, itemCount } =
-    useCartStore();
+  const localCart = useCartStore();
+  const { data: serverCart } = useServerCart();
   const checkoutApi = useCheckout();
   const addCartItem = useAddCartItem();
   const { data: walletData } = useWalletBalance();
   const walletBalance = walletData?.balance ?? 0;
   const availableBalance = (walletData?.availableBalance ?? walletData?.balance ?? 0);
+  const loggedIn = typeof window !== "undefined" && !!readToken();
+  const serverItems = cartToUiItems(serverCart);
+  const useServer = loggedIn && serverItems.length > 0;
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const count = mounted ? itemCount() : 0;
-  const sub = mounted ? subtotal() : 0;
-  const total = mounted ? totalWithShipping() : 0;
+  const displayItems = mounted
+    ? useServer
+      ? serverItems
+      : localCart.items
+    : [];
+  const count = displayItems.reduce((s, i) => s + (i.quantity || 1), 0);
+  const sub = displayItems.reduce(
+    (s, i) => s + i.price * (i.quantity || 1),
+    0
+  );
+  const total = displayItems.reduce(
+    (s, i) => s + i.priceWithShipping * (i.quantity || 1),
+    0
+  );
   const shippingFees = total - sub;
-  const displayItems = mounted ? items : [];
+
+  const removeItem = (id: string | number) => localCart.removeItem(id);
+  const clearCart = () => localCart.clearCart();
+  const itemCount = () => count;
+  const subtotal = () => sub;
+  const totalWithShipping = () => total;
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("mobile-money");
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>("main-propre");
@@ -166,19 +187,52 @@ export default function CheckoutPage() {
     setIsProcessing(true);
 
     try {
-      // Sync local cart lines to server cart, then checkout once
-      for (const item of displayItems) {
-        try {
-          await addCartItem.mutateAsync({
-            listingId: String(item.id),
-            quantity: item.quantity || 1,
-          });
-        } catch {
-          /* item may already be on server cart */
+      // Sync local cart lines to server cart when needed
+      if (!useServer) {
+        for (const item of displayItems) {
+          try {
+            await addCartItem.mutateAsync({
+              listingId: String(item.id),
+              quantity: item.quantity || 1,
+            });
+          } catch {
+            /* item may already be on server cart */
+          }
         }
       }
 
-      const res = await checkoutApi.mutateAsync();
+      const fulfillmentMode: FulfillmentMode =
+        deliveryMode === "main-propre"
+          ? "pickup"
+          : deliveryMode === "seller-delivery"
+            ? "shopLocalDelivery"
+            : "courier";
+
+      const phone =
+        paymentMethod === "mobile-money"
+          ? form.mobileNumber
+          : form.phone;
+      const normalizedPhone = phone.startsWith("+")
+        ? phone
+        : `+224${phone.replace(/^0+/, "")}`;
+
+      const res = await checkoutApi.mutateAsync({
+        fulfillmentMode,
+        address: {
+          name: form.fullName.trim(),
+          phone: form.phone.startsWith("+")
+            ? form.phone
+            : `+224${form.phone.replace(/^0+/, "")}`,
+          ...(deliveryMode !== "main-propre"
+            ? {
+                zoneId: form.city || "zone_1",
+                manualAddress: form.address.trim(),
+                landmark: form.city || undefined,
+              }
+            : {}),
+        },
+        orangeMoneyPhone: normalizedPhone,
+      });
       const orders = Array.isArray((res as any)?.orders)
         ? (res as any).orders
         : [];
@@ -678,7 +732,7 @@ export default function CheckoutPage() {
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Qté : {item.quantity}
-                          {item.size ? ` · ${item.size}` : ""}
+                          {"size" in item && item.size ? ` · ${item.size}` : ""}
                         </p>
                         <p className="text-sm font-semibold text-foreground mt-0.5">
                           {(item.price * item.quantity).toLocaleString("fr-FR")} GNF
