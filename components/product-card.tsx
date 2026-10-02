@@ -125,17 +125,20 @@ export function ProductCard({ product }: { product: Product }) {
         )}
         <div>
           <p className="text-sm font-semibold text-foreground">
-            {product.price.toLocaleString("fr-FR")} GNF
+            {(product.price ?? 0).toLocaleString("fr-FR")} GNF
             {product.discountEnabled &&
               product.compareAtPrice != null &&
-              product.compareAtPrice > product.price && (
+              product.compareAtPrice > (product.price ?? 0) && (
                 <span className="ml-2 text-xs font-normal text-muted-foreground line-through">
                   {product.compareAtPrice.toLocaleString("fr-FR")} GNF
                 </span>
               )}
           </p>
           <p className="text-xs text-primary font-medium">
-            {product.priceWithShipping.toLocaleString("fr-FR")} GNF incl.
+            {(product.priceWithShipping ?? product.price ?? 0).toLocaleString(
+              "fr-FR"
+            )}{" "}
+            GNF incl.
           </p>
         </div>
       </div>

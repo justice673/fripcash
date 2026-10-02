@@ -12,6 +12,7 @@ import { NewsletterSection } from "@/components/newsletter-section";
 import { AppDownloadSection } from "@/components/app-download-section";
 import { Footer } from "@/components/footer";
 import { AppSheet } from "@/components/app-sheet";
+import { SectionErrorBoundary } from "@/components/section-error-boundary";
 
 export default function Home() {
   return (
@@ -20,15 +21,23 @@ export default function Home() {
       <AppSheet />
       <HeroSection />
       <InfoBanner message="Les frais de port sont calculés lors du paiement." />
-      <CategoriesGrid />
-      <HomePromotionsSection />
+      <SectionErrorBoundary>
+        <CategoriesGrid />
+      </SectionErrorBoundary>
+      <SectionErrorBoundary>
+        <HomePromotionsSection />
+      </SectionErrorBoundary>
       <section className="container mx-auto px-4 pb-12">
         <h2 className="text-2xl font-bold tracking-tight mb-6">
           Articles populaires
         </h2>
-        <ProductGrid />
+        <SectionErrorBoundary>
+          <ProductGrid />
+        </SectionErrorBoundary>
       </section>
-      <NewProductsSlider />
+      <SectionErrorBoundary>
+        <NewProductsSlider />
+      </SectionErrorBoundary>
       <TestimonialsSection />
       <CtaSection />
       <AppDownloadSection />
