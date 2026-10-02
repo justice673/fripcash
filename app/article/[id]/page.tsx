@@ -47,6 +47,101 @@ import {
   canMakeOffer,
   canMessageSeller,
 } from "@/lib/marketplace-actions";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+
+function galleryThumbClass(selected: boolean) {
+  return cn(
+    "relative aspect-square rounded-lg overflow-hidden bg-muted shrink-0 transition-all duration-200",
+    selected
+      ? "opacity-100 ring-2 ring-foreground/90 ring-inset shadow-sm"
+      : "opacity-55 hover:opacity-90 ring-1 ring-border/40 hover:ring-border"
+  );
+}
+
+function ArticleDetailSkeleton() {
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      <Header />
+      <main className="flex-1">
+        <div className="container mx-auto px-4 pt-6 pb-28 lg:pb-20">
+          <div className="flex items-center gap-2 mb-6">
+            <Skeleton className="h-4 w-14" />
+            <Skeleton className="h-4 w-3" />
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-3" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
+            <div className="flex gap-2 sm:gap-3">
+              <Skeleton className="flex-1 aspect-[3/4] rounded-lg" />
+              <div className="flex flex-col gap-2 w-16 sm:w-20 shrink-0">
+                {[0, 1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="aspect-square rounded-lg" />
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="h-9 w-40" />
+                  <Skeleton className="h-4 w-52" />
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Skeleton className="h-9 w-16 rounded-full" />
+                  <Skeleton className="h-9 w-9 rounded-full" />
+                </div>
+              </div>
+              <div className="border-t border-border pt-4 space-y-3">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="flex justify-between">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-28" />
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-border pt-4">
+                <Skeleton className="h-3 w-36" />
+              </div>
+              <div className="border-t border-border pt-4 space-y-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-4/5" />
+              </div>
+              <Skeleton className="h-20 w-full rounded-xl" />
+              <div className="hidden lg:flex gap-3">
+                <Skeleton className="h-12 flex-1 rounded-full" />
+                <Skeleton className="h-12 flex-1 rounded-full" />
+              </div>
+            </div>
+          </div>
+
+          <section className="mt-16">
+            <Skeleton className="h-7 w-48 mb-6" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <ProductCardSkeleton key={i} />
+              ))}
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background p-3 lg:hidden">
+        <div className="flex gap-2">
+          <Skeleton className="h-12 flex-1 rounded-full" />
+          <Skeleton className="h-12 flex-1 rounded-full" />
+          <Skeleton className="h-12 w-12 rounded-full shrink-0" />
+        </div>
+      </div>
+
+      <Footer />
+    </div>
+  );
+}
 
 function mapArticleToProduct(article: any): Product {
   return {
@@ -371,15 +466,7 @@ export default function ArticleDetailPage() {
   const showMessage = canMessageSeller(marketplaceActor, listingMeta);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-        </main>
-        <Footer />
-      </div>
-    );
+    return <ArticleDetailSkeleton />;
   }
 
   if (!article) {
@@ -464,11 +551,7 @@ export default function ArticleDetailPage() {
                         type="button"
                         onClick={() => setSelectedImage(i)}
                         onDoubleClick={() => openGallery(i)}
-                        className={`relative aspect-square rounded-md overflow-hidden bg-muted shrink-0 transition-all ${
-                          selectedImage === i
-                            ? "ring-2 ring-primary ring-offset-1"
-                            : "opacity-80 hover:opacity-100"
-                        }`}
+                        className={galleryThumbClass(selectedImage === i)}
                         aria-label={`Voir l'image ${i + 1}`}
                         aria-pressed={selectedImage === i}
                       >
@@ -1075,11 +1158,12 @@ export default function ArticleDetailPage() {
                   key={`lb-${i}`}
                   type="button"
                   onClick={() => setSelectedImage(i)}
-                  className={`relative h-14 w-14 rounded-md overflow-hidden shrink-0 transition-all ${
+                  className={cn(
+                    "relative h-14 w-14 rounded-lg overflow-hidden shrink-0 transition-all duration-200",
                     selectedImage === i
-                      ? "ring-2 ring-white"
-                      : "opacity-50 hover:opacity-90"
-                  }`}
+                      ? "opacity-100 ring-2 ring-white ring-inset shadow-md"
+                      : "opacity-45 hover:opacity-80 ring-1 ring-white/20"
+                  )}
                   aria-label={`Aller à l'image ${i + 1}`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
