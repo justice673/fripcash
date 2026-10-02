@@ -24,15 +24,15 @@ function digitSize(size: "xs" | "sm" | "md") {
 
 function FlipSkeleton({ size }: { size: "xs" | "sm" | "md" }) {
   const digit = digitSize(size);
-  const h = size === "xs" ? 34 : 52;
+  const h = size === "xs" ? 22 : 36;
   return (
     <div
-      className="flex items-end gap-1 opacity-40"
+      className="flex items-center gap-0.5 opacity-40"
       style={{ height: h }}
       aria-hidden
     >
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="flex flex-col items-center gap-0.5">
+        <div key={i} className="flex items-center gap-0.5">
           <div className="flex gap-px">
             <div
               className="rounded-sm bg-black/50"
@@ -43,10 +43,9 @@ function FlipSkeleton({ size }: { size: "xs" | "sm" | "md" }) {
               style={{ width: digit.width, height: digit.height }}
             />
           </div>
-          <div
-            className="rounded bg-black/30"
-            style={{ height: 4, width: size === "xs" ? 20 : 32 }}
-          />
+          {i < 3 ? (
+            <span className="text-white/40 text-[10px] font-bold">:</span>
+          ) : null}
         </div>
       ))}
     </div>
@@ -85,14 +84,13 @@ function TextCountdownFallback({
   const h = Math.floor((totalSec % 86400) / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  const parts: string[] = [];
-  if (d > 0) parts.push(`${d}j`);
-  parts.push(`${h}h`, `${m}min`, `${s}s`);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const label = `${pad(d)}:${pad(h)}:${pad(m)}:${pad(s)}`;
   return (
     <span
-      className={`inline-flex items-center rounded-md border border-white/25 bg-white/15 px-2 py-1 text-[11px] font-semibold tabular-nums text-white ${className || ""}`}
+      className={`inline-flex items-center text-[11px] font-semibold tabular-nums text-white ${className || ""}`}
     >
-      {parts.join(" ")}
+      {label}
     </span>
   );
 }
@@ -141,11 +139,6 @@ export function PromoFlipCountdown({
   }, [endsAt]);
 
   const digit = digitSize(size);
-  const labelFont = size === "md" ? 11 : size === "sm" ? 9 : 7;
-  const labels: [string, string, string, string] =
-    size === "xs"
-      ? ["J", "H", "M", "S"]
-      : ["Jours", "Heures", "Min", "Sec"];
   const textFallback = (
     <TextCountdownFallback
       endsAt={endsAt}
@@ -173,14 +166,8 @@ export function PromoFlipCountdown({
         <FlipClockCountdown
           to={toMs}
           now={() => Date.now() + skewMs}
-          labels={labels}
-          labelStyle={{
-            color: "#f5a623",
-            fontSize: labelFont,
-            fontWeight: 600,
-            textTransform: "uppercase",
-            letterSpacing: "0.03em",
-          }}
+          showLabels={false}
+          showSeparators
           digitBlockStyle={{
             width: digit.width,
             height: digit.height,
@@ -191,10 +178,9 @@ export function PromoFlipCountdown({
             fontWeight: 700,
           }}
           dividerStyle={{ color: "rgba(0,0,0,0.45)", height: 1 }}
-          separatorStyle={{ color: "rgba(255,255,255,0.35)", size: "0.35em" }}
-          showSeparators={false}
+          separatorStyle={{ color: "rgba(255,255,255,0.85)", size: "0.45em" }}
           spacing={{
-            clock: size === "md" ? 10 : size === "sm" ? 6 : 3,
+            clock: size === "md" ? 10 : size === "sm" ? 6 : 4,
             digitBlock: size === "xs" ? 1 : 2,
           }}
           duration={0.55}

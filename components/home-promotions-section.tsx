@@ -83,7 +83,7 @@ function PromoSlide({
               </span>
             ) : null}
           </div>
-          <div className="shrink-0 rounded-lg bg-black/35 p-1 backdrop-blur-[2px]">
+          <div className="shrink-0">
             <PromoFlipCountdown
               endsAt={promo.endsAt}
               serverNow={serverNow}
