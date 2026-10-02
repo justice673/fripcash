@@ -6,29 +6,34 @@ import "@leenguyen/react-flip-clock-countdown/dist/index.css";
 
 const FlipClockCountdown = dynamic(
   () => import("@leenguyen/react-flip-clock-countdown"),
-  { ssr: false, loading: () => <FlipSkeleton size="sm" /> }
+  { ssr: false, loading: () => <FlipSkeleton size="xs" /> }
 );
 
 type PromoFlipCountdownProps = {
   endsAt: string;
   serverNow?: string;
   className?: string;
-  size?: "sm" | "md";
+  size?: "xs" | "sm" | "md";
 };
 
-function digitSize(size: "sm" | "md") {
-  return size === "md"
-    ? { width: 40, height: 56, fontSize: 32 }
-    : { width: 26, height: 36, fontSize: 20 };
+function digitSize(size: "xs" | "sm" | "md") {
+  if (size === "md") return { width: 40, height: 56, fontSize: 32 };
+  if (size === "sm") return { width: 26, height: 36, fontSize: 20 };
+  return { width: 16, height: 22, fontSize: 13 };
 }
 
-function FlipSkeleton({ size }: { size: "sm" | "md" }) {
+function FlipSkeleton({ size }: { size: "xs" | "sm" | "md" }) {
   const digit = digitSize(size);
+  const h = size === "xs" ? 34 : 52;
   return (
-    <div className="flex h-[52px] items-end gap-1.5 opacity-40" aria-hidden>
+    <div
+      className="flex items-end gap-1 opacity-40"
+      style={{ height: h }}
+      aria-hidden
+    >
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="flex flex-col items-center gap-1">
-          <div className="flex gap-0.5">
+        <div key={i} className="flex flex-col items-center gap-0.5">
+          <div className="flex gap-px">
             <div
               className="rounded-sm bg-black/50"
               style={{ width: digit.width, height: digit.height }}
@@ -38,7 +43,10 @@ function FlipSkeleton({ size }: { size: "sm" | "md" }) {
               style={{ width: digit.width, height: digit.height }}
             />
           </div>
-          <div className="h-2 w-8 rounded bg-black/30" />
+          <div
+            className="rounded bg-black/30"
+            style={{ height: 4, width: size === "xs" ? 20 : 32 }}
+          />
         </div>
       ))}
     </div>
@@ -111,7 +119,7 @@ export function PromoFlipCountdown({
   endsAt,
   serverNow,
   className,
-  size = "sm",
+  size = "xs",
 }: PromoFlipCountdownProps) {
   const [mounted, setMounted] = useState(false);
   const [expired, setExpired] = useState(false);
@@ -133,6 +141,11 @@ export function PromoFlipCountdown({
   }, [endsAt]);
 
   const digit = digitSize(size);
+  const labelFont = size === "md" ? 11 : size === "sm" ? 9 : 7;
+  const labels: [string, string, string, string] =
+    size === "xs"
+      ? ["J", "H", "M", "S"]
+      : ["Jours", "Heures", "Min", "Sec"];
   const textFallback = (
     <TextCountdownFallback
       endsAt={endsAt}
@@ -160,13 +173,13 @@ export function PromoFlipCountdown({
         <FlipClockCountdown
           to={toMs}
           now={() => Date.now() + skewMs}
-          labels={["Jours", "Heures", "Min", "Sec"]}
+          labels={labels}
           labelStyle={{
             color: "#f5a623",
-            fontSize: size === "md" ? 11 : 9,
+            fontSize: labelFont,
             fontWeight: 600,
             textTransform: "uppercase",
-            letterSpacing: "0.04em",
+            letterSpacing: "0.03em",
           }}
           digitBlockStyle={{
             width: digit.width,
@@ -174,13 +187,16 @@ export function PromoFlipCountdown({
             fontSize: digit.fontSize,
             background: "#2a2a2a",
             color: "#eeeeee",
-            borderRadius: 4,
+            borderRadius: size === "xs" ? 3 : 4,
             fontWeight: 700,
           }}
           dividerStyle={{ color: "rgba(0,0,0,0.45)", height: 1 }}
           separatorStyle={{ color: "rgba(255,255,255,0.35)", size: "0.35em" }}
           showSeparators={false}
-          spacing={{ clock: size === "md" ? 10 : 6, digitBlock: 2 }}
+          spacing={{
+            clock: size === "md" ? 10 : size === "sm" ? 6 : 3,
+            digitBlock: size === "xs" ? 1 : 2,
+          }}
           duration={0.55}
           stopOnHiddenVisibility
           renderOnServer={false}
