@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   useHomePromotions,
   type HomePromoCard,
 } from "@/hooks/use-promotions";
+import { PromoFlipCountdown } from "@/components/promo-flip-countdown";
 
 function formatGnf(n: number) {
   return `${Math.round(n).toLocaleString("fr-FR")} GNF`;
@@ -19,59 +20,6 @@ function discountPercent(
   if (typeof serverPct === "number" && serverPct > 0) return serverPct;
   if (promo == null || compare == null || compare <= promo) return null;
   return Math.round(((compare - promo) / compare) * 100);
-}
-
-function pad(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-/** Countdown using optional server clock skew from `serverNow`. */
-function useCountdown(endsAt: string, serverNow?: string) {
-  const skewMs = (() => {
-    if (!serverNow) return 0;
-    const server = new Date(serverNow).getTime();
-    if (Number.isNaN(server)) return 0;
-    return server - Date.now();
-  })();
-
-  const calc = useCallback(() => {
-    const nowApprox = Date.now() + skewMs;
-    const ms = new Date(endsAt).getTime() - nowApprox;
-    if (ms <= 0) return { expired: true, label: "Terminé" };
-    const totalSec = Math.floor(ms / 1000);
-    const h = Math.floor(totalSec / 3600);
-    const m = Math.floor((totalSec % 3600) / 60);
-    const s = totalSec % 60;
-    return {
-      expired: false,
-      label: `${pad(h)}:${pad(m)}:${pad(s)}`,
-    };
-  }, [endsAt, skewMs]);
-
-  const [state, setState] = useState(calc);
-
-  useEffect(() => {
-    setState(calc());
-    const id = window.setInterval(() => setState(calc()), 1000);
-    return () => window.clearInterval(id);
-  }, [calc]);
-
-  return state;
-}
-
-function PromoCountdown({
-  endsAt,
-  serverNow,
-}: {
-  endsAt: string;
-  serverNow?: string;
-}) {
-  const { label } = useCountdown(endsAt, serverNow);
-  return (
-    <span className="inline-flex items-center rounded-md border border-white/25 bg-white/15 px-2 py-1 font-mono text-[11px] font-semibold tabular-nums text-white backdrop-blur-sm">
-      {label}
-    </span>
-  );
 }
 
 function PromoSlide({
@@ -91,7 +39,7 @@ function PromoSlide({
   return (
     <Link
       href={promo.href}
-      className="relative block h-[220px] w-full shrink-0 overflow-hidden rounded-2xl sm:h-[260px] snap-center"
+      className="relative block h-[240px] w-full shrink-0 overflow-hidden rounded-2xl sm:h-[280px] snap-center"
     >
       {promo.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -114,7 +62,7 @@ function PromoSlide({
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(0deg, rgba(0,0,0,0.55) 0%, transparent 45%)",
+            "linear-gradient(0deg, rgba(0,0,0,0.6) 0%, transparent 50%)",
         }}
       />
 
@@ -132,9 +80,14 @@ function PromoSlide({
               {promo.badge}
             </span>
           ) : null}
-          <span className="ml-auto">
-            <PromoCountdown endsAt={promo.endsAt} serverNow={serverNow} />
-          </span>
+        </div>
+
+        <div className="mt-3 self-end sm:mt-2">
+          <PromoFlipCountdown
+            endsAt={promo.endsAt}
+            serverNow={serverNow}
+            size="sm"
+          />
         </div>
 
         <div className="mt-auto space-y-2">
@@ -192,7 +145,7 @@ export function HomePromotionsSection() {
     return (
       <section className="container mx-auto px-4 pb-4 pt-2">
         <div className="mb-4 h-7 w-48 animate-pulse rounded bg-muted" />
-        <div className="h-[220px] animate-pulse rounded-2xl bg-muted sm:h-[260px]" />
+        <div className="h-[240px] animate-pulse rounded-2xl bg-muted sm:h-[280px]" />
       </section>
     );
   }

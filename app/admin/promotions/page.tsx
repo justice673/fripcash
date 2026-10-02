@@ -178,9 +178,16 @@ function PromoCardPreview({
     if (endsAtLocal) {
       const ms = new Date(endsAtLocal).getTime() - Date.now();
       if (ms > 0) {
-        const h = Math.floor(ms / 3600000);
-        const m = Math.floor((ms % 3600000) / 60000);
-        countdown = `${h}h ${pad(m)}m`;
+        // Remaining until endsAt (promo window end), not total duration.
+        const totalSec = Math.floor(ms / 1000);
+        const d = Math.floor(totalSec / 86400);
+        const h = Math.floor((totalSec % 86400) / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const parts: string[] = [];
+        if (d > 0) parts.push(`${d}j`);
+        parts.push(`${h}h`);
+        parts.push(`${pad(m)}min`);
+        countdown = parts.join(" ");
       } else {
         countdown = "Expiré";
       }
