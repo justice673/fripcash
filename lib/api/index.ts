@@ -261,6 +261,8 @@ export {
   type PromotionStatus,
   type PromotionSurface,
   type PromotionListResponse,
+  type PublicPromotion,
+  type PublicPromotionsResponse,
   type CreatePromotionBody,
   type UpdatePromotionBody,
 } from "./promotions";

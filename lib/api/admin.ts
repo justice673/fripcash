@@ -413,10 +413,17 @@ export type AdminListing = {
 export async function fetchAdminListings(params?: {
   status?: string;
 }) {
-  const { data } = await api.get<AdminListing[]>("/admin/listings", {
+  const { data } = await api.get<
+    AdminListing[] | { items?: AdminListing[]; data?: AdminListing[] }
+  >("/admin/listings", {
     params: params?.status ? { status: params.status } : { status: "ALL" },
   });
-  return data;
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object") {
+    if (Array.isArray(data.items)) return data.items;
+    if (Array.isArray(data.data)) return data.data;
+  }
+  return [];
 }
 
 /** Admin moderation — staff audience only (not owner PATCH /listings/:id). */

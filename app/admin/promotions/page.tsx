@@ -233,10 +233,11 @@ function PromoCardPreview({
 export default function PromotionsPage() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
-  const { data, isLoading: articlesLoading } = useAdminArticles({
-    status: "active",
-    q: search || undefined,
-  });
+  const { data, isLoading: articlesLoading, isError: articlesError } =
+    useAdminArticles({
+      status: "active",
+      q: search || undefined,
+    });
   const articles = (data?.data ?? []) as ArticleRow[];
 
   const [promos, setPromos] = useState<Promotion[]>([]);
@@ -478,9 +479,17 @@ export default function PromotionsPage() {
 
       {apiMode === "local" && !promosLoading && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
-          API Nest pas encore livrée — aperçu local (localStorage). Dès que{" "}
-          <code className="text-xs">/admin/promotions</code> répond, le mode
-          bascule en live. CTA public = PDP du <code className="text-xs">listingId</code>.
+          Impossible de joindre{" "}
+          <code className="text-xs">/admin/promotions</code> — aperçu
+          localStorage. Reconnectez-vous en admin et rechargez. Le site public
+          utilise déjà <code className="text-xs">GET /promotions?surface=HOME_WEB</code>.
+        </div>
+      )}
+      {apiMode === "live" && !promosLoading && (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-100">
+          API live — les promos actives apparaissent sur l’app (
+          <code className="text-xs">HOME_APP</code>) et le site (
+          <code className="text-xs">HOME_WEB</code>) selon la surface choisie.
         </div>
       )}
 
@@ -606,9 +615,23 @@ export default function PromotionsPage() {
           <div className="flex h-40 items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
           </div>
+        ) : articlesError ? (
+          <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-8 text-center text-sm text-destructive">
+            Impossible de charger les articles admin. Vérifiez la session admin,
+            puis ouvrez{" "}
+            <a href="/admin/articles" className="underline font-medium">
+              Articles
+            </a>{" "}
+            — s’ils y apparaissent, rechargez cette page.
+          </p>
         ) : articles.length === 0 ? (
           <p className="py-12 text-center text-sm text-muted-foreground">
-            Aucun article actif trouvé.
+            Aucun article <strong>actif</strong> trouvé. Publiez d’abord une
+            annonce (vendeur) ou passez-la en{" "}
+            <a href="/admin/articles" className="underline font-medium text-foreground">
+              Actif
+            </a>{" "}
+            dans Articles, puis revenez ici pour <strong>Promouvoir</strong>.
           </p>
         ) : (
           <div className="space-y-2">

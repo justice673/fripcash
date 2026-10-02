@@ -695,7 +695,18 @@ export function useAdminArticles(params?: {
           params.status.toUpperCase()
         : "ALL";
 
-      const listings = await fetchAdminListings({ status: apiStatus });
+      let listings = await fetchAdminListings({ status: apiStatus });
+      // Some BE builds ignore / mishandle ACTIVE filter — fall back to ALL.
+      if (
+        (!listings || listings.length === 0) &&
+        apiStatus !== "ALL"
+      ) {
+        const all = await fetchAdminListings({ status: "ALL" });
+        listings = all.filter(
+          (l) => String(l.status || "").toUpperCase() === apiStatus
+        );
+      }
+      if (!Array.isArray(listings)) listings = [];
 
       const mapUiStatus = (status: string) => {
         const s = status.toUpperCase();
@@ -712,7 +723,7 @@ export function useAdminArticles(params?: {
         id: l.id,
         title: l.title,
         description: l.description || "",
-        price: l.priceGnf,
+        price: Number(l.priceGnf ?? l.netPriceGnf) || 0,
         quantity: l.quantity,
         status: mapUiStatus(String(l.status || "")),
         apiStatus: String(l.status || "").toUpperCase(),

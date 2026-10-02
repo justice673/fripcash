@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useCategories } from "@/hooks/use-categories";
 
@@ -172,18 +173,23 @@ function CategoryCard({
   cat: Cat;
   useArea?: boolean;
 }) {
+  const [broken, setBroken] = useState(false);
+
   return (
     <Link
       href={cat.href}
-      className="relative min-h-[140px] overflow-hidden rounded-xl group"
+      className="relative min-h-[140px] overflow-hidden rounded-xl group bg-muted"
       style={useArea ? { gridArea: cat.area } : undefined}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={cat.image}
-        alt={cat.label}
-        className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-      />
+      {!broken ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={cat.image}
+          alt=""
+          onError={() => setBroken(true)}
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+      ) : null}
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
       <span className="absolute bottom-3 left-3 text-white font-semibold text-lg drop-shadow">
         {cat.label}
